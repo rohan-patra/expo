@@ -8,9 +8,6 @@ namespace react = facebook::react;
 
 namespace expo {
 
-/**
- Borrows the props map from the source props and applies the update given in the raw props.
- */
 std::unordered_map<std::string, folly::dynamic> propsMapFromProps(
   const ExpoViewProps &sourceProps,
   const react::RawProps &rawProps
@@ -39,6 +36,15 @@ ExpoViewProps::ExpoViewProps(
 #else
   : react::ViewProps(context, sourceProps, rawProps),
 #endif
-    propsMap(propsMapFromProps(sourceProps, rawProps)) {}
+#ifndef EXPO_JSI_VIEW_PROPS
+    // Without JSI decoding, `propsMap` is the only carrier of props, so build it here from the
+    // `folly::dynamic` lowering. With JSI decoding enabled, the component descriptor's
+    // `cloneProps` owns `propsMap` instead: it skips this (expensive) lowering entirely for
+    // views that decode straight from JSI, and only populates `propsMap` for the views that
+    // still need it (non-JSI-backed props, or views that don't JSI-decode, e.g. SwiftUI).
+    propsMap(propsMapFromProps(sourceProps, rawProps)),
+#endif
+    disableForceFlatten(react::convertRawProp(
+      context, rawProps, "disableForceFlatten", sourceProps.disableForceFlatten, false)) {}
 
 } // namespace expo
